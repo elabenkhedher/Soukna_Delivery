@@ -7,9 +7,10 @@ import '../core/auth/firebase_role_service.dart';
 import '../core/auth/role_denied_exception.dart';
 import '../core/auth/user_role.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/page_transitions.dart';
 import '../utils/snackbar_helper.dart';
-import '../widgets/auth_layout.dart';
+import '../widgets/hero_delivery_car.dart';
 import '../widgets/password_field.dart';
 import '../widgets/primary_button.dart';
 import 'auth_gate.dart';
@@ -31,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _passwordFocus = FocusNode();
 
   bool _isLoading = false;
+  bool _keepSignedIn = true;
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeIn;
@@ -41,13 +43,13 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: AppDurations.hero,
     );
-    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: AppCurves.smooth);
     _slideIn = Tween<Offset>(
-      begin: const Offset(0, 0.06),
+      begin: const Offset(0, 0.05),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut));
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: AppCurves.smooth));
     _animCtrl.forward();
   }
 
@@ -72,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       final authService = AuthService();
       // Connexion Firebase + vérification du rôle livreur :
-      // le compte sans rôle « deliverer » est refusé et déconnecté.
       await FirebaseRoleService().signInWithRole(
         email: _emailController.text,
         password: _passwordController.text,
@@ -180,149 +181,285 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return AuthScaffold(
-      heroHeightFactor: 0.42,
-      fadeInAnimation: _fadeIn,
-      slideInAnimation: _slideIn,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 48, 24, 36),
-        child: Column(
-          children: [
-            const AuthHeaderBadge(
-              icon: Icons.directions_car_rounded,
-              size: 80,
-              iconSize: 40,
-              borderRadius: 24,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Dokan Delivery',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Espace livreur',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Bienvenue',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Connectez-vous à votre compte',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 32),
-
-          // Formulaire
-          Form(
-            key: _formKey,
-            child: AutofillGroup(
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: SlideTransition(
+              position: _slideIn,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Email
-                  TextFormField(
-                    controller: _emailController,
-                    focusNode: _emailFocus,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.username],
-                    onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
-                    validator: (value) {
-                      final email = value?.trim() ?? '';
-                      final atIndex = email.indexOf('@');
-                      if (email.isEmpty) {
-                        return 'Saisissez votre adresse e-mail.';
-                      }
-                      if (atIndex < 1 ||
-                          !email.substring(atIndex + 1).contains('.')) {
-                        return 'Adresse e-mail invalide.';
-                      }
-                      return null;
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Adresse e-mail',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Mot de passe
-                  PasswordField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocus,
-                    onFieldSubmitted: (_) => _login(),
-                    validator: (value) => (value ?? '').isEmpty
-                        ? 'Saisissez votre mot de passe.'
-                        : null,
-                  ),
                   const SizedBox(height: 8),
 
-                  // Mot de passe oublié ?
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _forgotPassword,
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: const Text('Mot de passe oublié ?'),
+                  // ── BANDEAU HERO RÉCEPTEUR (Hero Scooter Animation) ──
+                  Container(
+                    height: 144,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.heroGradient,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryDark.withValues(alpha: 0.28),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Décorations subtiles d'arrière-plan
+                        Positioned(
+                          right: -20,
+                          top: -20,
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.05),
+                            ),
+                          ),
+                        ),
+                        // Textes de marque
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 22.0,
+                            vertical: 18.0,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Dokan Delivery',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 22,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.pill),
+                                ),
+                                child: const Text(
+                                  'Espace livreur',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Vos courses, en toute sérénité.',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Camionnette d'expédition réceptrice du Hero
+                        const Positioned(
+                          right: 10,
+                          top: 10,
+                          bottom: 10,
+                          child: HeroDeliveryCar(
+                            size: 132,
+                            heroTag: 'delivery_vehicle_hero_tag',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
 
-                  // Bouton principal
-                  PrimaryButton(
-                    label: 'Se connecter',
-                    icon: Icons.login_rounded,
-                    isLoading: _isLoading,
-                    onPressed: _login,
+                  const SizedBox(height: 32),
+
+                  // Titre et sous-titre
+                  Text(
+                    'Bienvenue',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Connectez-vous à votre compte',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isDark
+                              ? AppColors.darkMuted
+                              : AppColors.mutedText,
+                        ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Formulaire de connexion
+                  Form(
+                    key: _formKey,
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // E-mail ou téléphone
+                          TextFormField(
+                            controller: _emailController,
+                            focusNode: _emailFocus,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.username],
+                            onFieldSubmitted: (_) =>
+                                _passwordFocus.requestFocus(),
+                            validator: (value) {
+                              final email = value?.trim() ?? '';
+                              final atIndex = email.indexOf('@');
+                              if (email.isEmpty) {
+                                return 'Saisissez votre adresse e-mail.';
+                              }
+                              if (atIndex < 1 ||
+                                  !email.substring(atIndex + 1).contains('.')) {
+                                return 'Adresse e-mail invalide.';
+                              }
+                              return null;
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Adresse e-mail',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              hintText: 'exemple@dokan.tn',
+                              filled: true,
+                              fillColor: isDark
+                                  ? AppColors.darkSurfaceAlt
+                                  : Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Mot de passe
+                          PasswordField(
+                            controller: _passwordController,
+                            focusNode: _passwordFocus,
+                            onFieldSubmitted: (_) => _login(),
+                            validator: (value) => (value ?? '').isEmpty
+                                ? 'Saisissez votre mot de passe.'
+                                : null,
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Mémorisation & Mot de passe oublié
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: Checkbox(
+                                      value: _keepSignedIn,
+                                      activeColor: AppColors.primary,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                      ),
+                                      onChanged: (v) => setState(
+                                        () => _keepSignedIn = v ?? false,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Rester connecté',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isDark
+                                          ? AppColors.darkMuted
+                                          : AppColors.mutedText,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: _forgotPassword,
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                ),
+                                child: const Text(
+                                  'Mot de passe oublié ?',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Bouton de connexion avec micro-interaction physique (rebond 60 FPS)
+                          PrimaryButton(
+                            label: 'Se connecter',
+                            icon: Icons.login_rounded,
+                            isLoading: _isLoading,
+                            onPressed: _login,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 36),
+
+                  // Footer sécurisé
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 14,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.mutedText,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Connexion sécurisée • Dokan Livreur',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.mutedText,
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(height: 32),
-
-          // Footer
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.lock_outline,
-                size: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Connexion sécurisée',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

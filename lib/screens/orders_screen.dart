@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/delivery_order.dart';
 import '../services/order_service.dart';
 import '../services/working_hours_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/page_transitions.dart';
+import '../widgets/bouncy_button.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/order_card.dart';
 import 'order_details_screen.dart';
@@ -35,6 +37,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   late final OrderService _orderService;
   late final WorkingHoursService _workingHoursService;
+  String _activeFilter = 'Toutes';
 
   @override
   void initState() {
@@ -65,38 +68,109 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (widget.onRefresh != null) {
       await widget.onRefresh!();
     } else {
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 400));
     }
     if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final orders = widget.orders ?? _orderService.getOrders();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final allOrders = widget.orders ?? _orderService.getOrders();
+
+    final filteredOrders = switch (_activeFilter) {
+      'À récupérer' || 'À traiter' => allOrders
+          .where((o) => o.isAssigned)
+          .toList(),
+      'En cours' =>
+        allOrders.where((o) => o.isInProgress).toList(),
+      'Terminées' => allOrders
+          .where((o) => o.isDelivered || o.isFailedOrRefused)
+          .toList(),
+      _ => allOrders,
+    };
 
     final content = RefreshIndicator(
       onRefresh: _handleRefresh,
-      color: Theme.of(context).colorScheme.primary,
+      color: AppColors.primary,
       child: ListView(
         key: const ValueKey('orders-page'),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
         children: [
           Text(
             'Toutes vos commandes',
-            style: Theme.of(context).textTheme.titleLarge,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
           ),
           const SizedBox(height: 4),
           Text(
-            '${orders.length} commande${orders.length == 1 ? '' : 's'} au total',
+            '${allOrders.length} commande${allOrders.length == 1 ? '' : 's'} au total',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: isDark ? AppColors.darkMuted : AppColors.mutedText,
                 ),
           ),
+          const SizedBox(height: 14),
+
+          // Pilules de filtrage interactif (Capsules 100px)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children:
+                  ['Toutes', 'À récupérer', 'En cours', 'Terminées'].map((f) {
+                final isSelected = _activeFilter == f;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: BouncyButton(
+                    onTap: () => setState(() => _activeFilter = f),
+                    scaleFactor: 0.95,
+                    child: AnimatedContainer(
+                      duration: AppDurations.quick,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : (isDark
+                                ? AppColors.darkSurfaceAlt
+                                : AppColors.surfaceAlt),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border),
+                        ),
+                      ),
+                      child: Text(
+                        f,
+                        style: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark
+                                  ? AppColors.darkText
+                                  : AppColors.text),
+                          fontSize: 13,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
           const SizedBox(height: 18),
-          if (orders.isEmpty)
+
+          if (filteredOrders.isEmpty)
             const EmptyState(message: 'Aucune commande disponible.')
           else
-            ...orders.map(
+            ...filteredOrders.map(
               (o) => OrderCard(
                 order: o,
                 onTap: () => _openOrder(o),

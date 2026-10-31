@@ -3,6 +3,10 @@
         android:label="Dokan Delivery"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Désactive le backend Impeller OpenGLES pour éviter l'écran noir sur les émulateurs Android -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

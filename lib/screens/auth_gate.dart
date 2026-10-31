@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/auth/firebase_role_service.dart';
 import '../core/auth/user_role.dart';
@@ -15,16 +16,13 @@ class AuthGate extends StatelessWidget {
     final authService = AuthService();
 
     return StreamBuilder<User?>(
-      // Listen to real-time authentication state changes
       stream: authService.authStateChanges,
       initialData: authService.currentUser,
       builder: (context, snapshot) {
-        // If user is logged in -> verify the deliverer role first
         if (snapshot.hasData && snapshot.data != null) {
-          return const _DelivererRoleGate();
+          return _DelivererRoleGate(user: snapshot.data!);
         }
 
-        // While Firebase is checking the active session
         if (snapshot.connectionState == ConnectionState.waiting &&
             snapshot.data == null) {
           return const Scaffold(
@@ -32,29 +30,38 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        // If user is NOT logged in -> Go to Login
         return const LoginScreen();
       },
     );
   }
 }
 
-/// Vérifie le rôle Firestore « deliverer » pour la session restaurée.
-/// Rôle absent / insuffisant → déconnexion automatique → écran de connexion.
 class _DelivererRoleGate extends StatefulWidget {
-  const _DelivererRoleGate();
+  final User user;
+  const _DelivererRoleGate({required this.user});
 
   @override
   State<_DelivererRoleGate> createState() => _DelivererRoleGateState();
 }
 
 class _DelivererRoleGateState extends State<_DelivererRoleGate> {
-  late final Future<User?> _check =
-      FirebaseRoleService().restoreUserWithRole(UserRole.deliverer);
+  late final Future<bool> _check = _isFullyAuthorized();
+
+  Future<bool> _isFullyAuthorized() async {
+    final user =
+        await FirebaseRoleService().restoreUserWithRole(UserRole.deliverer);
+    if (user == null) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasChangedPassword =
+        prefs.getBool('first_password_changed_${user.uid}') ?? false;
+
+    return hasChangedPassword;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<User?>(
+    return FutureBuilder<bool>(
       future: _check,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -62,9 +69,12 @@ class _DelivererRoleGateState extends State<_DelivererRoleGate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (snapshot.hasData && snapshot.data != null) {
+
+        if (snapshot.hasData && snapshot.data == true) {
           return const DashboardScreen();
         }
+
+        // Si le premier mot de passe n'a pas encore été validé -> Écran de connexion
         return const LoginScreen();
       },
     );

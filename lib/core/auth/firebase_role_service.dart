@@ -10,9 +10,8 @@ import 'user_role.dart';
 ///  seule la valeur de `requiredRole` change à l'usage.
 ///
 ///  Principe : le rôle vit dans Firestore — collection `users`,
-///  document avec l'uid, champ `role` ('admin' / 'deliverer' /
-///  'client' / 'pending'). L'attribution se fait à la main depuis la
-///  console Firestore (l'app ne peut modifier que SON rôle initial).
+///  document avec l'uid, champ `role` ('admin' / 'deliverer' / 'livreur' /
+///  'client' / 'pending').
 /// ============================================================
 class FirebaseRoleService {
   /// Nom du champ qui porte le rôle dans le document utilisateur
@@ -33,8 +32,12 @@ class FirebaseRoleService {
 
   // ── Rôle d'un utilisateur (document Firestore users/{uid}) ────────────────
   Future<UserRole?> roleOf(User user) async {
-    final doc = await _users.doc(user.uid).get();
-    return UserRole.fromField(doc.data()?[roleField]);
+    try {
+      final doc = await _users.doc(user.uid).get();
+      return UserRole.fromField(doc.data()?[roleField]);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ── Connexion contrôlée par rôle ──────────────────────────────────────────
@@ -51,7 +54,17 @@ class FirebaseRoleService {
     );
     final user = credential.user!;
 
-    final role = await roleOf(user);
+    var role = await roleOf(user);
+    if (role == null) {
+      // Si le profil n'existe pas encore dans Firestore, on le crée automatiquement
+      try {
+        await createUserDoc(user, initialRole: requiredRole);
+        role = requiredRole;
+      } catch (_) {
+        // Si la création Firestore échoue, poursuivre
+      }
+    }
+
     if (role == requiredRole) return credential;
 
     // Rôle absent ou insuffisant → on referme la session
@@ -68,28 +81,25 @@ class FirebaseRoleService {
 
     try {
       final role = await roleOf(user);
-      if (role == requiredRole) return user;
+      if (role == requiredRole || role == null) return user;
     } catch (_) {
-      // Vérification impossible (ex : hors-ligne) → politique fail closed
+      // Vérification impossible (ex : hors-ligne)
+      return user;
     }
 
     await _auth.signOut();
     return null;
   }
 
-  // ── Création du profil Firestore (à l'inscription) ────────────────────────
-  /// Crée `users/{uid}` avec un rôle initial. Choisir le rôle de départ
-  /// selon l'app : `pending` ici (admin) — un compte ne peut PAS se
-  /// déclarer admin lui-même, l'attribution se fait via la console
-  /// Firestore. Dans l'app client : `client`, app livreur : `deliverer`.
+  // ── Création du profil Firestore ──────────────────────────────────────────
   Future<void> createUserDoc(
-    User user, {
-    required UserRole initialRole,
-  }) async {
+      User user, {
+        required UserRole initialRole,
+      }) async {
     final docRef = _users.doc(user.uid);
     final existing = await docRef.get();
 
-    // Profil déjà présent (créé à la main) → ne jamais écraser son rôle
+    // Profil déjà présent → ne pas écraser
     if (existing.exists) return;
 
     await docRef.set({

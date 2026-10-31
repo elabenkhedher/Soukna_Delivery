@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:livreur_app/main.dart';
 import 'package:livreur_app/screens/dashboard_screen.dart';
+import 'package:livreur_app/services/order_service.dart';
+import 'mocks/sample_orders.dart';
 
 void main() {
   testWidgets('app renders login screen and splash screen correctly', (
@@ -22,7 +24,11 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const MaterialApp(home: DashboardScreen()));
+    await tester.pumpWidget(MaterialApp(
+      home: DashboardScreen(
+        orderService: OrderService(initialOrders: getSampleOrders()),
+      ),
+    ));
     await tester.pumpAndSettle();
 
     expect(find.text('Dashboard Livreur'), findsOneWidget);
@@ -95,7 +101,11 @@ void main() {
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const MaterialApp(home: DashboardScreen()));
+    await tester.pumpWidget(MaterialApp(
+      home: DashboardScreen(
+        orderService: OrderService(initialOrders: getSampleOrders()),
+      ),
+    ));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('nav-1')));

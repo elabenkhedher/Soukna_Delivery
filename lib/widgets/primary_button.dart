@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import 'bouncy_button.dart';
 
-/// Bouton d'action principal avec dégradé, état de chargement animé
-/// et retour visuel tactile.
+/// Bouton d'action principal ergonomique avec micro-interaction physique (rebond 60 FPS),
+/// dégradé de couleur fidèle, état de chargement fluide et retour haptique.
 class PrimaryButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -11,6 +13,7 @@ class PrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double height;
   final double? width;
+  final double borderRadius;
 
   const PrimaryButton({
     super.key,
@@ -20,6 +23,7 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.height = 54,
     this.width = double.infinity,
+    this.borderRadius = AppRadius.md,
   });
 
   @override
@@ -35,7 +39,7 @@ class PrimaryButton extends StatelessWidget {
         height: 22,
         child: CircularProgressIndicator(
           color: Colors.white,
-          strokeWidth: 2.5,
+          strokeWidth: 2.4,
         ),
       );
     } else {
@@ -62,44 +66,47 @@ class PrimaryButton extends StatelessWidget {
     }
 
     final container = AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: AppDurations.quick,
+      curve: AppCurves.smooth,
       height: height,
       decoration: BoxDecoration(
         gradient: enabled ? AppTheme.primaryGradient : null,
         color: !enabled
-            ? colorScheme.primary.withValues(alpha: 0.65)
+            ? colorScheme.primary.withValues(alpha: 0.55)
             : null,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: enabled
             ? [
                 BoxShadow(
-                  color: const Color(0xFF1F7A7A).withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: AppColors.primary.withValues(alpha: 0.28),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
               ]
             : null,
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: enabled ? onPressed : null,
-          borderRadius: BorderRadius.circular(14),
-          splashColor: Colors.white.withValues(alpha: 0.15),
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: buttonContent,
-            ),
-          ),
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: AppDurations.quick,
+          child: buttonContent,
         ),
       ),
     );
 
+    final wrapped = BouncyButton(
+      onTap: enabled
+          ? () {
+              HapticFeedback.lightImpact();
+              onPressed?.call();
+            }
+          : null,
+      scaleFactor: enabled ? 0.96 : 1.0,
+      child: container,
+    );
+
     if (width != null) {
-      return SizedBox(width: width, child: container);
+      return SizedBox(width: width, child: wrapped);
     }
-    return container;
+    return wrapped;
   }
 }

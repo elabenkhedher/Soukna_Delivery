@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:livreur_app/services/order_service.dart';
+import 'mocks/sample_orders.dart';
 
 void main() {
   test('order status advances one way and cannot change after delivery', () {
-    final orderService = OrderService();
+    final orderService = OrderService(initialOrders: getSampleOrders());
     final order = orderService.getOrders().singleWhere(
       (order) => order.id == '1003',
     );
@@ -19,7 +20,7 @@ void main() {
   });
 
   test('refused orders are final and excluded from active orders', () {
-    final orderService = OrderService();
+    final orderService = OrderService(initialOrders: getSampleOrders());
     final order = orderService.getOrders().singleWhere(
       (order) => order.id == '1003',
     );

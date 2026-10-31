@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/page_transitions.dart';
+import '../widgets/delivery_road_scene.dart';
 import 'login_screen.dart';
 
-/// Écran de démarrage (Splash Screen) animé avec le nom et logo de l'application.
+/// Écran de démarrage (Splash Screen) animé avec la camionnette de livraison
+/// en mouvement sur une route dynamique et transition Hero vers la page de connexion.
 class SplashScreen extends StatefulWidget {
   final Duration duration;
   final Widget nextScreen;
 
   const SplashScreen({
     super.key,
-    this.duration = const Duration(milliseconds: 2500),
+    this.duration = const Duration(milliseconds: 2600),
     this.nextScreen = const LoginScreen(),
   });
 
@@ -33,28 +35,28 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 1800),
     );
 
     _fadeAnim = CurvedAnimation(
       parent: _animCtrl,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeIn),
+      curve: const Interval(0.0, 0.65, curve: Curves.easeIn),
     );
 
-    _scaleAnim = Tween<double>(begin: 0.82, end: 1.0).animate(
+    _scaleAnim = Tween<double>(begin: 0.90, end: 1.0).animate(
       CurvedAnimation(
         parent: _animCtrl,
-        curve: const Interval(0.0, 0.8, curve: Curves.easeOutBack),
+        curve: const Interval(0.0, 0.8, curve: AppCurves.spring),
       ),
     );
 
     _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.15),
+      begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(
         parent: _animCtrl,
-        curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
+        curve: const Interval(0.1, 0.85, curve: AppCurves.smooth),
       ),
     );
 
@@ -97,13 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
           child: SafeArea(
             child: Stack(
               children: [
-                // Cercles décoratifs d'arrière-plan
+                // Cercles décoratifs d'arrière-plan avec douce luminescence
                 Positioned(
-                  top: -60,
+                  top: -80,
                   right: -60,
                   child: Container(
-                    width: 220,
-                    height: 220,
+                    width: 250,
+                    height: 250,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.05),
@@ -111,11 +113,11 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
                 Positioned(
-                  bottom: 80,
+                  bottom: 110,
                   left: -80,
                   child: Container(
-                    width: 260,
-                    height: 260,
+                    width: 270,
+                    height: 270,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white.withValues(alpha: 0.04),
@@ -123,7 +125,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
-                // Contenu central
+                // Contenu central : Marque + Scène de route dynamique
                 Center(
                   child: FadeTransition(
                     opacity: _fadeAnim,
@@ -134,70 +136,75 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Logo avec halo lumineux
-                            Container(
-                              width: 104,
-                              height: 104,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.35),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.18),
-                                    blurRadius: 30,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                  BoxShadow(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    blurRadius: 20,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.directions_car_rounded,
-                                size: 56,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-
-                            // Nom de l'application
+                            // Titre principal de l'application
                             const Text(
                               'Dokan Delivery',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 32,
+                                fontSize: 34,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.8,
+                                shadows: [
+                                  Shadow(
+                                    color: Color(0x3D000000),
+                                    offset: Offset(0, 4),
+                                    blurRadius: 16,
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 8),
 
-                            // Sous-titre
+                            // Sous-titre en capsule avec indicateur en direct
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
+                                horizontal: 16,
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Espace Livreur',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.4,
+                                color: Colors.white.withValues(alpha: 0.16),
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.pill),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.30),
+                                  width: 1,
                                 ),
                               ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'Espace Livreur',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
+
+                            const SizedBox(height: 20),
+
+                            // Scène vivante de la camionnette sur la route en mouvement
+                            const DeliveryRoadScene(
+                              carSize: 142,
+                              heroTag: 'delivery_vehicle_hero_tag',
+                            ),
+
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ),
@@ -205,7 +212,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
 
-                // Bas de page (indicateur et version)
+                // Bas de page (indicateur et slogan)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -228,10 +235,10 @@ class _SplashScreenState extends State<SplashScreen>
                         Text(
                           'Rapidité • Fiabilité • Sécurité',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
+                            color: Colors.white.withValues(alpha: 0.78),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.6,
                           ),
                         ),
                       ],

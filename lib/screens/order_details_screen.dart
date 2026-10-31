@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/delivery_order.dart';
 import '../services/order_service.dart';
 import '../services/working_hours_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/snackbar_helper.dart';
 import '../widgets/order_status_badge.dart';
 
@@ -32,9 +34,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: AppDurations.normal,
     )..forward();
-    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: AppCurves.smooth);
   }
 
   @override
@@ -44,6 +46,7 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   }
 
   void _advanceStatus() {
+    HapticFeedback.lightImpact();
     late final String status;
     try {
       status = widget.orderService.advanceStatus(widget.order);
@@ -59,7 +62,13 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Refuser cette commande ?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        title: const Text(
+          'Refuser cette commande ?',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         content: const Text(
           'Cette décision est définitive et la commande sera '
           'ajoutée à votre historique.',
@@ -72,6 +81,9 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirmer le refus'),
@@ -94,19 +106,23 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final isDelivered = order.status == DeliveryOrder.delivered;
-    final isRefused = order.status == DeliveryOrder.refused;
+    final isDelivered = order.isDelivered;
+    final isRefused = order.isFailedOrRefused;
 
-    final statusStep = switch (order.status) {
-      DeliveryOrder.awaitingPickup => 0,
-      DeliveryOrder.inProgress => 1,
-      DeliveryOrder.delivered => 2,
-      _ => -1,
-    };
+    final statusStep = order.isDelivered
+        ? 2
+        : order.isInProgress
+            ? 1
+            : order.isAssigned
+                ? 0
+                : -1;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Commande #${order.id}'),
+        title: Text(
+          'Commande #${order.id}',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
         centerTitle: true,
       ),
       body: FadeTransition(
@@ -116,23 +132,33 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
           children: [
             // ── Bannière statut ──────────────────────────────
             _StatusBanner(order: order),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
             // ── Infos client ────────────────────────────────
             const _SectionTitle(title: 'Informations client'),
             const SizedBox(height: 10),
             Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                side: BorderSide(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.5),
+                ),
+              ),
               child: Column(
                 children: [
                   _InfoRow(
-                    icon: Icons.person_outline,
+                    icon: Icons.person_outline_rounded,
                     label: 'Client',
                     value: order.customerName,
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _InfoRow(
                     icon: Icons.location_on_outlined,
-                    label: 'Adresse',
+                    label: 'Adresse de livraison',
                     value: order.address,
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
@@ -145,29 +171,42 @@ class _OrderDetailsScreenState extends State<OrderDetailsScreen>
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   _InfoRow(
                     icon: Icons.payments_outlined,
-                    label: 'Montant',
+                    label: 'Montant à encaisser',
                     value: '${order.total.toStringAsFixed(3)} TND',
                     isAmount: true,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // ── Progression ──────────────────────────────────
+            // ── Progression de la livraison ──────────────────
             if (!isRefused) ...[
               const _SectionTitle(title: 'Progression de la livraison'),
               const SizedBox(height: 10),
               Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  side: BorderSide(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outline
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 22,
+                  ),
                   child: _DeliveryTimeline(currentStep: statusStep),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
             ],
 
-            // ── Suggestion horaires ──────────────────────────
+            // ── Suggestion d'horaires ─────────────────────────
             if (order.status == DeliveryOrder.awaitingPickup) ...[
               _WorkingHoursSuggestion(
                 workingHoursService: widget.workingHoursService,
@@ -196,20 +235,21 @@ class _StatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = order.statusColor(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
+              color: color.withValues(alpha: 0.16),
               shape: BoxShape.circle,
             ),
             child: Icon(order.statusIcon, color: color, size: 28),
@@ -221,13 +261,19 @@ class _StatusBanner extends StatelessWidget {
               children: [
                 Text(
                   'Commande #${order.id}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                      ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 OrderStatusBadge(
                   status: order.status,
                   fontSize: 12,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 ),
               ],
             ),
@@ -244,7 +290,7 @@ class _DeliveryTimeline extends StatelessWidget {
   const _DeliveryTimeline({required this.currentStep});
 
   static const _steps = [
-    ('À récupérer', Icons.store_outlined),
+    ('Affectée', Icons.assignment_outlined),
     ('En cours', Icons.directions_car_rounded),
     ('Livrée', Icons.check_circle_outline),
   ];
@@ -259,47 +305,46 @@ class _DeliveryTimeline extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                // Cercle + ligne
                 Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Ligne
+                    // Ligne de liaison
                     if (i < _steps.length - 1)
                       Align(
                         alignment: Alignment.centerRight,
                         child: Container(
-                          height: 2,
-                          margin: const EdgeInsets.only(left: 24),
+                          height: 2.5,
+                          margin: const EdgeInsets.only(left: 30),
                           color: i < currentStep
-                              ? colorScheme.primary
+                              ? AppColors.primary
                               : colorScheme.outline.withValues(alpha: 0.3),
                         ),
                       ),
-                    // Cercle
+                    // Cercle d'étape
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: 44,
-                      height: 44,
+                      duration: AppDurations.medium,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: i <= currentStep
                             ? (i == currentStep
-                                ? colorScheme.primary
-                                : const Color(0xFF2E9E6B))
+                                ? AppColors.primary
+                                : AppColors.success)
                             : colorScheme.surfaceContainerHighest,
                         border: Border.all(
                           color: i <= currentStep
                               ? Colors.transparent
-                              : colorScheme.outline.withValues(alpha: 0.3),
+                              : colorScheme.outline.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                         boxShadow: i == currentStep
                             ? [
                                 BoxShadow(
-                                  color: colorScheme.primary
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
                               ]
                             : null,
@@ -311,7 +356,7 @@ class _DeliveryTimeline extends StatelessWidget {
                         color: i <= currentStep
                             ? Colors.white
                             : colorScheme.onSurfaceVariant,
-                        size: 20,
+                        size: 22,
                       ),
                     ),
                   ],
@@ -321,10 +366,10 @@ class _DeliveryTimeline extends StatelessWidget {
                   _steps[i].$1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: i == currentStep
                         ? FontWeight.w700
-                        : FontWeight.normal,
+                        : FontWeight.w500,
                     color: i <= currentStep
                         ? colorScheme.onSurface
                         : colorScheme.onSurfaceVariant,
@@ -357,22 +402,42 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+
     return ListTile(
-      leading: Icon(icon, color: colorScheme.primary, size: 22),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppColors.primarySoft,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Icon(icon, color: AppColors.primary, size: 20),
+      ),
       title: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontSize: 12,
+            ),
       ),
       subtitle: Text(
         value,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: isAmount ? FontWeight.w700 : FontWeight.normal,
-              color: isAmount ? colorScheme.primary : null,
+              fontWeight: isAmount ? FontWeight.w800 : FontWeight.w600,
+              color: isAmount ? AppColors.primary : null,
+              fontSize: isAmount ? 16 : 14,
             ),
       ),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      trailing: isPhone
+          ? IconButton(
+              tooltip: 'Copier le numéro',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: value));
+                AppSnackBar.showSuccess(context, 'Numéro copié');
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+            )
+          : null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }
@@ -392,15 +457,20 @@ class _WorkingHoursSuggestion extends StatelessWidget {
     final color = !isLoaded
         ? colorScheme.onSurfaceVariant
         : isWorking
-            ? colorScheme.primary
+            ? AppColors.primary
             : colorScheme.error;
 
     return Card(
+      elevation: 0,
       color: !isLoaded
           ? colorScheme.surfaceContainerHighest
           : isWorking
-              ? colorScheme.primaryContainer
+              ? AppColors.primarySoft
               : colorScheme.errorContainer,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
+      ),
       child: ListTile(
         leading: Icon(
           !isLoaded
@@ -416,7 +486,7 @@ class _WorkingHoursSuggestion extends StatelessWidget {
               : isWorking
                   ? '💡 Suggestion : accepter'
                   : '⚠ Suggestion : refuser',
-          style: TextStyle(fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(fontWeight: FontWeight.w700, color: color),
         ),
         subtitle: Text(
           !isLoaded
@@ -424,6 +494,7 @@ class _WorkingHoursSuggestion extends StatelessWidget {
               : isWorking
                   ? 'Vous êtes dans vos horaires. Vous restez libre de votre décision.'
                   : 'Vous êtes hors de vos horaires. Vous restez libre de votre décision.',
+          style: const TextStyle(fontSize: 12.5),
         ),
       ),
     );
@@ -437,7 +508,13 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: Theme.of(context).textTheme.titleMedium);
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+    );
   }
 }
 
@@ -460,23 +537,25 @@ class _BottomActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget content;
     if (isDelivered || isRefused) {
       content = Card(
-        color: isDelivered
-            ? colorScheme.primaryContainer
-            : colorScheme.errorContainer,
+        color: isDelivered ? AppColors.primarySoft : colorScheme.errorContainer,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
         child: ListTile(
           leading: Icon(
             isDelivered ? Icons.check_circle_rounded : Icons.block_rounded,
-            color: isDelivered ? colorScheme.primary : colorScheme.error,
+            color: isDelivered ? AppColors.primary : colorScheme.error,
           ),
           title: Text(
             isDelivered ? 'Commande terminée' : 'Commande refusée',
             style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: isDelivered ? colorScheme.primary : colorScheme.error,
+              fontWeight: FontWeight.w700,
+              color: isDelivered ? AppColors.primary : colorScheme.error,
             ),
           ),
           subtitle: Text(
@@ -486,7 +565,7 @@ class _BottomActions extends StatelessWidget {
           ),
         ),
       );
-    } else if (order.status == DeliveryOrder.inProgress) {
+    } else if (order.isInProgress) {
       content = SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
@@ -494,6 +573,12 @@ class _BottomActions extends StatelessWidget {
           onPressed: onAdvance,
           icon: const Icon(Icons.task_alt_rounded),
           label: const Text('Marquer comme livrée'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(0, 54),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+          ),
         ),
       );
     } else {
@@ -506,6 +591,12 @@ class _BottomActions extends StatelessWidget {
             onPressed: onAdvance,
             icon: const Icon(Icons.handshake_outlined),
             label: const Text('Accepter la commande'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(0, 54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
           ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
@@ -515,7 +606,11 @@ class _BottomActions extends StatelessWidget {
             label: const Text('Refuser la commande'),
             style: OutlinedButton.styleFrom(
               foregroundColor: colorScheme.error,
-              side: BorderSide(color: colorScheme.error),
+              side: BorderSide(color: colorScheme.error, width: 1.5),
+              minimumSize: const Size(0, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
           ),
         ],
@@ -525,14 +620,18 @@ class _BottomActions extends StatelessWidget {
     return SafeArea(
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: isDark ? colorScheme.surface : Colors.white,
           border: Border(
-            top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
+            top: BorderSide(
+              color: isDark
+                  ? AppColors.darkBorder
+                  : AppColors.border.withValues(alpha: 0.5),
+            ),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
               offset: const Offset(0, -3),
             ),
           ],

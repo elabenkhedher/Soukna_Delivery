@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/working_hours_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/snackbar_helper.dart';
 
 typedef HorairesScreen = WorkingHoursScreen;
@@ -88,7 +89,7 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
         data: Theme.of(context).copyWith(
           timePickerTheme: TimePickerThemeData(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
           ),
         ),
@@ -116,28 +117,41 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
   Widget _buildDaySchedule(BuildContext context, int day) {
     final hours = _workingHoursService.hours[day]!;
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: BorderSide(
+            color: isDark
+                ? AppColors.darkBorder
+                : AppColors.border.withValues(alpha: 0.6),
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
           child: Column(
             children: [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                activeThumbColor: AppColors.primary,
                 title: Text(
                   WorkingHoursService.weekdays[day - 1],
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
                 subtitle: Text(
                   hours.enabled ? 'Jour travaillé' : 'Jour de repos',
                   style: TextStyle(
                     color: hours.enabled
-                        ? colorScheme.primary
+                        ? AppColors.primary
                         : colorScheme.onSurfaceVariant,
                     fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 value: hours.enabled,
@@ -145,8 +159,8 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
                     _updateWorkingHours(day, hours.copyWith(enabled: enabled)),
               ),
               AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOut,
+                duration: AppDurations.medium,
+                curve: AppCurves.smooth,
                 child: hours.enabled
                     ? Column(
                         children: [
@@ -166,6 +180,10 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                          AppRadius.md),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -182,6 +200,10 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                          AppRadius.md),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -201,6 +223,7 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Widget body;
     if (_hoursLoading && !_workingHoursService.isLoaded) {
@@ -209,7 +232,7 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 16),
             Text('Chargement des horaires…'),
           ],
@@ -252,55 +275,68 @@ class _WorkingHoursScreenState extends State<WorkingHoursScreen> {
 
       body = ListView(
         key: const ValueKey('working-hours-page'),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
         children: [
-          Text('Organisez votre semaine',
-              style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            'Organisez votre semaine',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+          ),
           const SizedBox(height: 4),
           Text(
             'Ces horaires vous aident à décider d\'accepter une commande.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: isDark ? AppColors.darkMuted : AppColors.mutedText,
                 ),
           ),
           const SizedBox(height: 16),
 
-          // Statut du jour
+          // Statut du jour (carte avec indicateur actif)
           AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
+            duration: AppDurations.medium,
             decoration: BoxDecoration(
               color: isWorking
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
+                  ? AppColors.primarySoft
+                  : (isDark
+                      ? AppColors.darkSurfaceAlt
+                      : AppColors.surfaceAlt),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(
                 color: isWorking
-                    ? colorScheme.primary.withValues(alpha: 0.3)
-                    : colorScheme.outline,
+                    ? AppColors.primary.withValues(alpha: 0.35)
+                    : colorScheme.outline.withValues(alpha: 0.5),
               ),
+              boxShadow: AppShadows.soft(),
             ),
             child: ListTile(
-              leading: Icon(
-                isWorking
-                    ? Icons.work_history_rounded
-                    : Icons.event_busy_rounded,
-                color: isWorking
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: (isWorking ? AppColors.primary : AppColors.accent)
+                      .withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isWorking
+                      ? Icons.work_history_rounded
+                      : Icons.event_busy_rounded,
+                  color: isWorking ? AppColors.primary : AppColors.accent,
+                ),
               ),
               title: Text(
                 isWorking ? 'En service' : 'Hors de vos horaires',
                 style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: isWorking
-                      ? colorScheme.primary
-                      : colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  color: isWorking ? AppColors.primary : colorScheme.onSurface,
                 ),
               ),
               subtitle: Text('Aujourd\'hui : $todayRange'),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           for (var day = 1; day <= 7; day++) _buildDaySchedule(context, day),
 

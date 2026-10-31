@@ -4,9 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import '../utils/page_transitions.dart';
 import '../utils/snackbar_helper.dart';
-import '../widgets/auth_layout.dart';
+import '../widgets/hero_delivery_car.dart';
 import '../widgets/password_field.dart';
 import '../widgets/primary_button.dart';
 import 'dashboard_screen.dart';
@@ -28,6 +29,7 @@ class _PasswordScreenState extends State<PasswordScreen>
 
   late final AnimationController _animCtrl;
   late final Animation<double> _fadeIn;
+  late final Animation<Offset> _slideIn;
 
   int _strength = 0;
   String _passwordText = '';
@@ -37,9 +39,15 @@ class _PasswordScreenState extends State<PasswordScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
-    )..forward();
-    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+      duration: AppDurations.hero,
+    );
+    _fadeIn = CurvedAnimation(parent: _animCtrl, curve: AppCurves.smooth);
+    _slideIn = Tween<Offset>(
+      begin: const Offset(0, 0.05),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: AppCurves.smooth));
+    _animCtrl.forward();
+
     _newPasswordController.addListener(_evalStrength);
   }
 
@@ -92,7 +100,6 @@ class _PasswordScreenState extends State<PasswordScreen>
       final currentUser = AuthService().currentUser;
       if (currentUser != null) {
         await currentUser.updatePassword(password);
-        // Marquer que le mot de passe a été modifié pour ce compte
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('first_password_changed_${currentUser.uid}', true);
       }
@@ -103,7 +110,8 @@ class _PasswordScreenState extends State<PasswordScreen>
       if (e.code == 'weak-password') {
         errorMessage = 'Le mot de passe est trop faible.';
       } else if (e.code == 'requires-recent-login') {
-        errorMessage = 'Veuillez vous reconnecter avant de modifier le mot de passe.';
+        errorMessage =
+            'Veuillez vous reconnecter avant de modifier le mot de passe.';
       } else if (e.message != null && e.message!.isNotEmpty) {
         errorMessage = e.message!;
       }
@@ -125,91 +133,210 @@ class _PasswordScreenState extends State<PasswordScreen>
 
   @override
   Widget build(BuildContext context) {
-    return AuthScaffold(
-      heroHeightFactor: 0.32,
-      fadeInAnimation: _fadeIn,
-      header: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-        child: Column(
-          children: [
-            // Stepper
-            const _StepIndicator(currentStep: 1),
-            const SizedBox(height: 24),
-            const AuthHeaderBadge(
-              icon: Icons.lock_reset_rounded,
-              size: 68,
-              iconSize: 34,
-              borderRadius: 20,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Modifier le mot de passe',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: SlideTransition(
+              position: _slideIn,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+
+                  // ── BANDEAU HERO RÉCEPTEUR (Voiture de Livraison Dokan) ──
+                  Container(
+                    height: 146,
+                    decoration: BoxDecoration(
+                      gradient: AppTheme.heroGradient,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryDark.withValues(alpha: 0.28),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Stack(
+                      children: [
+                        // Décorations subtiles d'arrière-plan
+                        Positioned(
+                          right: -25,
+                          top: -25,
+                          child: Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.05),
+                            ),
+                          ),
+                        ),
+                        // Contenu textuel & Stepper
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 22.0,
+                            vertical: 16.0,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Stepper 2 étapes
+                              const _StepIndicator(currentStep: 1),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Dokan Delivery',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 20,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.pill),
+                                ),
+                                child: const Text(
+                                  'Sécurité du compte • Livreur',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Camionnette d'expédition réceptrice du Hero
+                        const Positioned(
+                          right: 10,
+                          top: 10,
+                          bottom: 10,
+                          child: HeroDeliveryCar(
+                            size: 132,
+                            heroTag: 'delivery_vehicle_hero_tag',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  // Titre & Sous-titre
+                  Text(
+                    'Modifier le mot de passe',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Pour votre première connexion, choisissez un nouveau mot de passe sécurisé.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: isDark
+                              ? AppColors.darkMuted
+                              : AppColors.mutedText,
+                        ),
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  // Champs de mot de passe
+                  PasswordField(
+                    controller: _newPasswordController,
+                    labelText: 'Nouveau mot de passe',
+                    hintText: 'Au moins 8 caractères',
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.newPassword],
+                    onFieldSubmitted: (_) => _confirmFocus.requestFocus(),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Barre de force interactive avec score en temps réel
+                  _StrengthBar(
+                    strength: _strength,
+                    passwordText: _passwordText,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Confirmation du mot de passe
+                  PasswordField(
+                    controller: _confirmPasswordController,
+                    focusNode: _confirmFocus,
+                    labelText: 'Confirmer le mot de passe',
+                    hintText: 'Retapez votre mot de passe',
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.newPassword],
+                    onFieldSubmitted: (_) => _changePassword(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Bouton principal avec micro-interaction physique (rebond 60 FPS)
+                  PrimaryButton(
+                    label: 'Confirmer et continuer',
+                    icon: Icons.check_circle_outline_rounded,
+                    isLoading: _isLoading,
+                    onPressed: _changePassword,
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Checklist dynamique des exigences de sécurité
+                  _RequirementsList(password: _passwordText),
+
+                  const SizedBox(height: 20),
+
+                  // Footer de sécurité
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 15,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.mutedText,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Vos identifiants sont chiffrés et sécurisés',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.mutedText,
+                            ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Choisissez un nouveau mot de passe',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 13,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Nouveau mot de passe
-          PasswordField(
-            controller: _newPasswordController,
-            labelText: 'Nouveau mot de passe',
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.newPassword],
-            onFieldSubmitted: (_) => _confirmFocus.requestFocus(),
-          ),
-          const SizedBox(height: 10),
-
-          // Barre de force
-          _StrengthBar(
-            strength: _strength,
-            passwordText: _passwordText,
-          ),
-          const SizedBox(height: 18),
-
-          // Confirmation
-          PasswordField(
-            controller: _confirmPasswordController,
-            focusNode: _confirmFocus,
-            labelText: 'Confirmer le mot de passe',
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.newPassword],
-            onFieldSubmitted: (_) => _changePassword(),
-          ),
-          const SizedBox(height: 28),
-
-          // Bouton confirmer
-          PrimaryButton(
-            label: 'Confirmer et continuer',
-            icon: Icons.check_rounded,
-            isLoading: _isLoading,
-            onPressed: _changePassword,
-          ),
-          const SizedBox(height: 20),
-
-          // Exigences
-          _RequirementsList(password: _passwordText),
-        ],
       ),
     );
   }
 }
 
-// ── Stepper 2 étapes ─────────────────────────────────────────
+// ── Stepper 2 étapes (Capsules 100px) ─────────────────────────
 class _StepIndicator extends StatelessWidget {
   final int currentStep;
   const _StepIndicator({required this.currentStep});
@@ -219,20 +346,20 @@ class _StepIndicator extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _dot(0),
+        _dot(0, '1'),
         _line(0),
-        _dot(1),
+        _dot(1, '2'),
       ],
     );
   }
 
-  Widget _dot(int index) {
+  Widget _dot(int index, String label) {
     final done = index < currentStep;
     final active = index == currentStep;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      width: active ? 34 : 30,
-      height: active ? 34 : 30,
+      duration: AppDurations.medium,
+      width: active ? 28 : 24,
+      height: active ? 28 : 24,
       decoration: BoxDecoration(
         color: (done || active)
             ? Colors.white
@@ -245,16 +372,19 @@ class _StepIndicator extends StatelessWidget {
       ),
       child: Center(
         child: done
-            ? const Icon(Icons.check_rounded,
-                color: Color(0xFF1F7A7A), size: 15)
+            ? const Icon(
+                Icons.check_rounded,
+                color: AppColors.primary,
+                size: 14,
+              )
             : Text(
-                '${index + 1}',
+                label,
                 style: TextStyle(
                   color: active
-                      ? const Color(0xFF1F7A7A)
-                      : Colors.white.withValues(alpha: 0.5),
+                      ? AppColors.primary
+                      : Colors.white.withValues(alpha: 0.6),
                   fontWeight: FontWeight.w800,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
       ),
@@ -263,20 +393,20 @@ class _StepIndicator extends StatelessWidget {
 
   Widget _line(int index) {
     return Container(
-      width: 44,
+      width: 32,
       height: 2,
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: index < currentStep
             ? Colors.white
             : Colors.white.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
     );
   }
 }
 
-// ── Barre de force ────────────────────────────────────────────
+// ── Barre de force avec dégradé et libellé interactif ────────
 class _StrengthBar extends StatelessWidget {
   final int strength;
   final String passwordText;
@@ -290,120 +420,175 @@ class _StrengthBar extends StatelessWidget {
   }
 
   Color get _color {
-    if (strength <= 1) return const Color(0xFFD64545);
-    if (strength == 2) return const Color(0xFFF2A65A);
-    if (strength == 3) return const Color(0xFF1F7A7A);
-    return const Color(0xFF2E9E6B);
+    if (strength <= 1) return AppColors.error;
+    if (strength == 2) return AppColors.accent;
+    if (strength == 3) return AppColors.primary;
+    return AppColors.success;
   }
 
   @override
   Widget build(BuildContext context) {
     if (passwordText.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: List.generate(4, (i) => Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
-              height: 4,
-              decoration: BoxDecoration(
-                color: i < strength
-                    ? _color
-                    : Theme.of(context)
-                        .colorScheme
-                        .outline
-                        .withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(2),
+          children: List.generate(
+            4,
+            (i) => Expanded(
+              child: AnimatedContainer(
+                duration: AppDurations.quick,
+                margin: EdgeInsets.only(right: i < 3 ? 5 : 0),
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: i < strength
+                      ? _color
+                      : Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
               ),
             ),
-          )),
+          ),
         ),
         const SizedBox(height: 6),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: Text(
-            'Force : $_label',
-            key: ValueKey(_label),
-            style: TextStyle(
-              color: _color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            AnimatedSwitcher(
+              duration: AppDurations.quick,
+              child: Text(
+                'Niveau de sécurité : $_label',
+                key: ValueKey(_label),
+                style: TextStyle(
+                  color: _color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
+            Text(
+              '${(strength * 25)}%',
+              style: TextStyle(
+                color: _color,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 }
 
-// ── Exigences ─────────────────────────────────────────────────
+// ── Checklist des exigences de sécurité ───────────────────────
 class _RequirementsList extends StatelessWidget {
   final String password;
   const _RequirementsList({required this.password});
 
   @override
   Widget build(BuildContext context) {
-    if (password.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final requirements = [
       ('8 caractères minimum', password.length >= 8),
       ('Une lettre majuscule', password.contains(RegExp(r'[A-Z]'))),
       ('Un chiffre', password.contains(RegExp(r'[0-9]'))),
-      ('Un caractère spécial (!@#...)', password.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'))),
+      (
+        'Un caractère spécial (!@#...\$)',
+        password.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'))
+      ),
     ];
 
-    return Card(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Exigences du mot de passe',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            ...requirements.map(
-              (r) => Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Row(
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        r.$2
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        key: ValueKey('${r.$1}-${r.$2}'),
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceAlt : AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: isDark
+              ? AppColors.darkBorder
+              : AppColors.border.withValues(alpha: 0.6),
+        ),
+        boxShadow: AppShadows.soft(),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_box_outlined,
+                size: 18,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Critères du mot de passe',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.darkText : AppColors.text,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...requirements.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  AnimatedSwitcher(
+                    duration: AppDurations.quick,
+                    child: Container(
+                      key: ValueKey('${r.$1}-${r.$2}'),
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
                         color: r.$2
-                            ? const Color(0xFF2E9E6B)
-                            : Theme.of(context).colorScheme.outline,
-                        size: 16,
+                            ? AppColors.success.withValues(alpha: 0.15)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: r.$2
+                              ? AppColors.success
+                              : (isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border),
+                          width: 1.5,
+                        ),
                       ),
+                      child: r.$2
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 13,
+                              color: AppColors.success,
+                            )
+                          : null,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      r.$1,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: r.$2
-                                ? const Color(0xFF2E9E6B)
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontWeight:
-                                r.$2 ? FontWeight.w600 : FontWeight.normal,
-                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    r.$1,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: r.$2
+                          ? AppColors.success
+                          : (isDark
+                              ? AppColors.darkMuted
+                              : AppColors.mutedText),
+                      fontWeight: r.$2 ? FontWeight.w700 : FontWeight.w500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
